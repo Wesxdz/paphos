@@ -16,29 +16,21 @@
 int main()
 {
     flecs::world ecs;
+    ecs.set_threads(FLECS_THREAD_COUNT);
 
-    ecs.trigger<PlatformFramework>().event(flecs::OnAdd).each(SetupGLFW);
+    ecs.trigger<PlatformFramework>().event(flecs::OnAdd).each(SetupFramework);
     ecs.trigger<Window>().event(flecs::OnAdd).each(CreateWindow);
 
     ecs.system<PlatformFramework>().kind(flecs::PreUpdate).iter(PollEvents);
     ecs.system<Window>().iter(CloseWindow);
 
-    ecs.trigger<PlatformFramework>().event(flecs::OnRemove).each(ShutdownGLFW);
+    ecs.trigger<PlatformFramework>().event(flecs::OnRemove).each(ShutdownFramework);
     ecs.trigger<Window>().event(flecs::OnRemove).each(DestroyWindow);
 
 
     auto platform = ecs.entity("platform_framework").add<PlatformFramework>();
     auto window = ecs.entity().add<Window>();
     
-    uint32_t extensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-    spdlog::info("{} extensions supported", extensionCount);
-
-    glm::mat4 matrix;
-    glm::vec4 vec;
-    auto test = matrix * vec;
-
     while (!ecs.should_quit())
     {
         ecs.progress();

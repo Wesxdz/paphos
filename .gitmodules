@@ -3,7 +3,7 @@
 	url = https://github.com/SanderMertens/flecs.git
 [submodule "deps/glfw"]
 	path = deps/glfw
-	url = https://github.com/Wesxdz/glfw
+	url = https://github.com/glfw/glfw
 [submodule "deps/glm"]
 	path = deps/glm
 	url = https://github.com/g-truc/glm
