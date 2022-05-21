@@ -47,7 +47,7 @@ void CloseWindow(flecs::iter& it, Window* window)
     }
     if (it.count() - closed == 0)
     {
-        it.world().lookup("platform_framework").destruct();
+        it.world().lookup("core").destruct();
     }
 }
 
@@ -107,10 +107,83 @@ void SetupFramework(flecs::entity e, PlatformFramework& pf)
     dmCreateInfo.pfnUserCallback = debugCallback;
     
     CreateDebugUtilsMessengerEXT(pf.instance, &dmCreateInfo, nullptr, &pf.debugMessenger);
+    
 }
 
-void ShutdownFramework(flecs::entity e, PlatformFramework& pf)
+void SelectPrimaryRenderDevice(flecs::entity e, PlatformFramework& pf, RenderDevice& rd)
 {
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(pf.instance, &deviceCount, nullptr);
+    if (deviceCount == 0)
+    {
+        spdlog::error("Failed to find GPU with Vulkan support");
+    }
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(pf.instance, &deviceCount, devices.data());
+    for (const auto& device : devices)
+    {
+        VkPhysicalDeviceProperties deviceProperties;
+        vkGetPhysicalDeviceProperties(device, &deviceProperties);
+        VkPhysicalDeviceFeatures deviceFeatures;
+        vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+        bool hasGraphics = false;
+
+        uint32_t queueFamilyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+        int i = 0;
+        for (const auto& queueFamily : queueFamilies)
+        {
+            if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+            {
+                rd.graphicsFamily = i;
+                hasGraphics = true;
+                break;
+            }
+            i++;
+        }
+
+        if (hasGraphics && deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+        deviceFeatures.geometryShader)
+        {
+            spdlog::info("Selected primary render device {}", deviceProperties.deviceName);
+            rd.physical = device;
+            break;
+        }
+    }
+}
+
+void SpecifyLogicalDevice(flecs::entity e, PlatformFramework& pf, RenderDevice& rd)
+{
+    VkDeviceQueueCreateInfo queueCreateInfo{};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = rd.graphicsFamily;
+    queueCreateInfo.queueCount = 1;
+    float queuePriority = 1.0f;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    VkPhysicalDeviceFeatures deviceFeatures{};
+    VkDeviceCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    createInfo.pQueueCreateInfos = &queueCreateInfo;
+    createInfo.queueCreateInfoCount = 1;
+    createInfo.pEnabledFeatures = &deviceFeatures;
+    createInfo.enabledExtensionCount = 0;
+    createInfo.enabledLayerCount = 0; // device only validation layers depreciated
+    VkResult result;
+    if ((result = vkCreateDevice(rd.physical, &createInfo, nullptr, &rd.logical)) != VK_SUCCESS)
+    {
+        spdlog::error("Failed to create logical device {}", result);
+    }
+    vkGetDeviceQueue(rd.logical, rd.graphicsFamily, 0, &rd.graphicsQueue);
+}
+
+void ShutdownFramework(flecs::entity e, PlatformFramework& pf, RenderDevice& rd)
+{
+    vkDestroyDevice(rd.logical, nullptr);
     DestroyDebugUtilsMessengerEXT(pf.instance, pf.debugMessenger, nullptr);
     vkDestroyInstance(pf.instance, nullptr);
     glfwTerminate();

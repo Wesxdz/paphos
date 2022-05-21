@@ -9,6 +9,14 @@ struct PlatformFramework
     VkDebugUtilsMessengerEXT debugMessenger;
 };
 
+struct RenderDevice
+{
+    VkPhysicalDevice physical = VK_NULL_HANDLE;
+    uint32_t graphicsFamily;
+    VkDevice logical;
+    VkQueue graphicsQueue;
+};
+
 struct Window
 {
     GLFWwindow* object;
