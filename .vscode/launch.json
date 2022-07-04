@@ -13,6 +13,8 @@
             "name": "Debug",
             "program": "${workspaceFolder}/build/paphos",
             "args": [],
+            "justMyCode": false,
+            "additionalSOLibSearchPath": "${workspaceFolder}/deps/skia/out/Shared"
         }
     ]
 }
